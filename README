@@ -1,3 +1,92 @@
-------------------------------------------------------------
- About this README
-------------------------------------------------------------
+-----------------------------------------------------
+recommended parameters
+OS	Linux Ubuntu server 20.04 or 22.04 
+CPU	1 CPU
+Ram	2 GB
+Network	100 MB/S
+-----------------------------------------------------
+!!! Be sure to change your database password !!!
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------Installing Docker----------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# install prerequisites
+sudo apt install apt-transport-https ca-certificates curl software-properties-common gnupg-agent -y
+
+# add docker gpg key
+curl -fsSL https://download.docker.com/linux/$(awk -F'=' '/^ID=/{ print $NF }' /etc/os-release)/gpg | sudo apt-key add -
+
+#add docker software repository
+sudo add-apt-repository "deb [arch=$(dpkg --print-architecture)] https://download.docker.com/linux/$(awk -F'=' '/^ID=/{ print $NF }' /etc/os-release) $(lsb_release -cs) stable"
+
+# install docker
+sudo apt install docker-ce docker-compose containerd.io -y
+
+# enable and start docker service
+sudo systemctl enable docker && sudo systemctl start docker
+
+# add the current user to the docker group
+sudo usermod -aG docker $USER
+
+# reauthenticate for the new group membership to take effect
+su - $USER
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------Running Apache Guacamole--------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# with root go to "cd /" and create working directories
+mkdir ~/docker/mariadb -p
+
+# set owner of docker directory
+sudo chown "$USER":"$USER" ~/docker -R
+
+# download the guacamole container
+docker pull guacamole/guacamole
+
+# run the mariadb docker container (change password in install time)
+docker run -d --name mariadb -e MYSQL_ROOT_PASSWORD=r00tp@ss -v ~/docker/mariadb:/var/lib/mysql --restart=unless-stopped mariadb:latest
+
+# create database init script
+docker run --rm guacamole/guacamole /opt/guacamole/bin/initdb.sh --mysql > ~/docker/mariadb/guacamole_db.sql
+
+# connect to mariadb container shell
+docker exec -ti mariadb /bin/bash
+
+# connect to mariadb as root user (use your password)
+mariadb -uroot -pr00tp@ss
+
+# create the database
+create database guacamole;
+
+# create and configure the database user
+GRANT ALL ON guacamole.* TO 'guacamole_rw'@'%' IDENTIFIED BY 'Guac@m0le!';
+
+# flush mariadb privileges
+flush privileges;
+
+# exit mariadb cli
+quit
+
+# import the guacamole schema
+cat /var/lib/mysql/guacamole_db.sql | mariadb -uroot -pr00tp@ss -Dguacamole
+
+# exit the maridb container shell
+exit
+
+# run the guacd container
+docker run -d --name guacd guacamole/guacd
+
+# run the guacamole container
+docker run -d --name guacamole --link guacd --link mariadb -e MYSQL_HOSTNAME=mariadb -e MYSQL_DATABASE=guacamole -e MYSQL_USER=guacamole_rw -e MYSQL_PASSWORD=Guac@m0le! -p 8080:8080 guacamole/guacamole
+
+-----------------------------------------------------
+after installation
+
+Open a web browser and navigate to http://DNS-or-IP:8080/guacamole/
+Log in with guacadmin/guacadmin
+Go to Settings > Users
+Create a new user and grant all permissions
+Log out and log in as the new user
+Go to Settings > Users > Delete the guacadmin user
+-----------------------------------------------------
+
+
