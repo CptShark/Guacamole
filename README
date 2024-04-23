@@ -30,7 +30,7 @@ sudo usermod -aG docker $USER
 # reauthenticate for the new group membership to take effect
 su - $USER
 
------------------------------------------------------Running Apache Guacamole-----------------------------------------------------
+-----------------------------------------------------Running Apache Guacamole------------------------------------------------
 
 # with root go to "cd /" and create working directories
 mkdir ~/docker/mariadb -p
